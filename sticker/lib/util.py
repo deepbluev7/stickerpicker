@@ -64,14 +64,5 @@ def make_sticker(mxc: str, width: int, height: int, size: int,
             "h": height,
             "size": size,
             "mimetype": "image/png",
-
-            # Element iOS compatibility hack
-            "thumbnail_url": mxc,
-            "thumbnail_info": {
-                "w": width,
-                "h": height,
-                "size": size,
-                "mimetype": "image/png",
-            },
         },
     }
