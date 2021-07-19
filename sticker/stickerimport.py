@@ -49,7 +49,7 @@ def add_meta(document: Document, info: matrix.StickerInfo, pack: StickerSetFull)
     }
 
 
-async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir: str, roomid: str, statekey: str) -> None:
+async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir: str, roomid: str, statekey: str, original_url: str) -> None:
     if pack.set.animated:
         print("Animated stickerpacks are currently not supported")
         return
@@ -107,7 +107,8 @@ async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir
             },
             "pack": {
                 "display_name": pack.set.title,
-                "usage": ["sticker"]
+                "usage": ["sticker"],
+                "attribution": f"Telegram stickers from {original_url}"
             },
             "images": {s["net.maunium.telegram.sticker"]["emoticon"]: s for s in reuploaded_documents.values()},
         }, ensure_ascii=False)
@@ -159,16 +160,14 @@ async def main(args: argparse.Namespace) -> None:
             print(f"{index:>{width}}. {saved_pack.title} "
                   f"(t.me/addstickers/{saved_pack.short_name})")
     elif args.pack[0]:
-        input_packs = []
         for pack_url in args.pack[0]:
             match = pack_url_regex.match(pack_url)
             if not match:
                 print(f"'{pack_url}' doesn't look like a sticker pack URL")
                 return
-            input_packs.append(InputStickerSetShortName(short_name=match.group(1)))
-        for input_pack in input_packs:
+            input_pack = InputStickerSetShortName(short_name=match.group(1))
             pack: StickerSetFull = await client(GetStickerSetRequest(input_pack))
-            await reupload_pack(client, pack, args.output_dir, args.roomid, args.statekey)
+            await reupload_pack(client, pack, args.output_dir, args.roomid, args.statekey, pack_url)
     else:
         parser.print_help()
 
