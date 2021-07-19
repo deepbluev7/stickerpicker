@@ -87,3 +87,9 @@ async def upload(data: bytes, mimetype: str, filename: str) -> str:
     headers = {"Content-Type": mimetype, "Authorization": f"Bearer {access_token}"}
     async with ClientSession() as sess, sess.post(url, data=data, headers=headers) as resp:
         return (await resp.json())["content_uri"]
+
+async def insert_sticker_into_room(data: bytes, roomid: str, statekey: str) -> str:
+    url = URL(homeserver_url) / "_matrix" / "client" / "r0" / "rooms" / roomid / "state" / "im.ponies.room_emotes" / statekey
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {access_token}"}
+    async with ClientSession() as sess, sess.put(url, data=data, headers=headers) as resp:
+        return str(await resp.json())

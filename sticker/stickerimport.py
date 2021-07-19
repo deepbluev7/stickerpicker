@@ -49,7 +49,7 @@ def add_meta(document: Document, info: matrix.StickerInfo, pack: StickerSetFull)
     }
 
 
-async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir: str) -> None:
+async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir: str, roomid: str, statekey: str) -> None:
     if pack.set.animated:
         print("Animated stickerpacks are currently not supported")
         return
@@ -83,6 +83,7 @@ async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir
         # Always ensure the body and telegram metadata is correct
         add_meta(document, reuploaded_documents[document.id], pack)
 
+    dup_key: Set[str] = set()
     for sticker in pack.packs:
         if not sticker.emoticon:
             continue
@@ -91,9 +92,13 @@ async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir
             # If there was no sticker metadata, use the first emoji we find
             if doc["body"] == "":
                 doc["body"] = sticker.emoticon
+            key = sticker.emoticon
+            while key in dup_key:
+                key = key+sticker.emoticon
+            doc["net.maunium.telegram.sticker"]["emoticon"] = key
+            dup_key.add(key)
 
-    with open(pack_path, "w") as pack_file:
-        json.dump({
+    data = json.dumps({
             "net.maunium.telegram.pack": {
                 "short_name": pack.set.short_name,
                 "hash": str(pack.set.hash),
@@ -104,9 +109,16 @@ async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir
                 "display_name": pack.set.title,
                 "usage": ["sticker"]
             },
-            "images": {s["body"]: s for s in reuploaded_documents.values()},
-        }, pack_file, ensure_ascii=False)
+            "images": {s["net.maunium.telegram.sticker"]["emoticon"]: s for s in reuploaded_documents.values()},
+        }, ensure_ascii=False)
+    with open(pack_path, "w") as pack_file:
+        pack_file.write(data)
     print(f"Saved {pack.set.title} as {pack.set.short_name}.json")
+
+    if (roomid and statekey):
+        print(f"Uploading pack into {roomid} with key {statekey}")
+        resp = await matrix.insert_sticker_into_room(data, roomid, statekey)
+        print(f"response: {resp}")
 
     util.add_to_index(os.path.basename(pack_path), output_dir)
 
@@ -124,6 +136,12 @@ parser.add_argument("--config",
                     type=str, default="config.json")
 parser.add_argument("--output-dir", help="Directory to write packs to", default="web/packs/",
                     type=str)
+parser.add_argument("--roomid",
+                    help="Roomid to upload this pack to",
+                    type=str, default="")
+parser.add_argument("--statekey",
+                    help="Statekey to use for this pack",
+                    type=str, default="")
 parser.add_argument("pack", help="Sticker pack URLs to import", action="append", nargs="*")
 
 
@@ -150,7 +168,7 @@ async def main(args: argparse.Namespace) -> None:
             input_packs.append(InputStickerSetShortName(short_name=match.group(1)))
         for input_pack in input_packs:
             pack: StickerSetFull = await client(GetStickerSetRequest(input_pack))
-            await reupload_pack(client, pack, args.output_dir)
+            await reupload_pack(client, pack, args.output_dir, args.roomid, args.statekey)
     else:
         parser.print_help()
 

@@ -26,14 +26,15 @@ def convert_image(data: bytes) -> (bytes, int, int):
     image: Image.Image = Image.open(BytesIO(data)).convert("RGBA")
     new_file = BytesIO()
     image.save(new_file, "png")
-    w, h = image.size
+    w = image.width
+    h = image.height
     if w > 256 or h > 256:
         # Set the width and height to lower values so clients wouldn't show them as huge images
         if w > h:
-            h = int(h / (w / 256))
+            h = int(h * (256 / w))
             w = 256
         else:
-            w = int(w / (h / 256))
+            w = int(w * (256 / h))
             h = 256
     return new_file.getvalue(), w, h
 
