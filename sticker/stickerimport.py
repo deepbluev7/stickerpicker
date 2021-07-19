@@ -44,14 +44,8 @@ def add_meta(document: Document, info: matrix.StickerInfo, pack: StickerSetFull)
     for attr in document.attributes:
         if isinstance(attr, DocumentAttributeSticker):
             info["body"] = attr.alt
-    info["id"] = f"tg-{document.id}"
     info["net.maunium.telegram.sticker"] = {
-        "pack": {
-            "id": str(pack.set.id),
-            "short_name": pack.set.short_name,
-        },
         "id": str(document.id),
-        "emoticons": [],
     }
 
 
@@ -74,7 +68,7 @@ async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir
         with open(pack_path) as pack_file:
             existing_pack = json.load(pack_file)
             already_uploaded = {int(sticker["net.maunium.telegram.sticker"]["id"]): sticker
-                                for sticker in existing_pack["stickers"]}
+                                for sticker in existing_pack["images"].values()}
             print(f"Found {len(already_uploaded)} already reuploaded stickers")
     except FileNotFoundError:
         pass
@@ -97,17 +91,20 @@ async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir
             # If there was no sticker metadata, use the first emoji we find
             if doc["body"] == "":
                 doc["body"] = sticker.emoticon
-            doc["net.maunium.telegram.sticker"]["emoticons"].append(sticker.emoticon)
 
     with open(pack_path, "w") as pack_file:
         json.dump({
-            "title": pack.set.title,
-            "id": f"tg-{pack.set.id}",
             "net.maunium.telegram.pack": {
                 "short_name": pack.set.short_name,
                 "hash": str(pack.set.hash),
+                "id": f"tg-{pack.set.id}",
+                "title": pack.set.title,
             },
-            "stickers": list(reuploaded_documents.values()),
+            "pack": {
+                "display_name": pack.set.title,
+                "usage": ["sticker"]
+            },
+            "images": {s["body"]: s for s in reuploaded_documents.values()},
         }, pack_file, ensure_ascii=False)
     print(f"Saved {pack.set.title} as {pack.set.short_name}.json")
 
